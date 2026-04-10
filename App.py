@@ -14,40 +14,41 @@ def download():
     choice = request.form.get('format_type')
     
     if not url:
-        return "Link kothay? Age link din dost!"
+        return "Link কই ভাই? আগে লিঙ্ক দিন!"
 
+    # নতুন আপডেট করা এপিআই এন্ডপয়েন্ট
     api_url = "https://api.cobalt.tools/api/json"
+    
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/json"
     }
     
-    # অডিও কোয়ালিটি চেক করা হচ্ছে (যদি অপশনে 'k' থাকে)
+    # অডিও নাকি ভিডিও চেক
     is_audio = True if 'k' in choice else False
-    bitrate = choice.replace('k', '') if is_audio else "128"
     
     payload = {
         "url": url,
-        "vQuality": choice if not is_audio else "720",
-        "isAudioOnly": is_audio,
-        "aFormat": "mp3",
-        "aBitrate": bitrate, # অডিও বিটরেট সেট করা হলো
-        "filenamePattern": "pretty"
+        "videoQuality": choice if not is_audio else "720",
+        "downloadMode": "audio" if is_audio else "video",
+        "audioFormat": "mp3",
+        "filenameStyle": "pretty"
     }
 
     try:
         response = requests.post(api_url, headers=headers, json=payload)
         result = response.json()
 
-        if result.get("status") in ["stream", "redirect"]:
+        # নতুন রেসপন্স ফরম্যাট অনুযায়ী চেক
+        if "url" in result:
             return redirect(result["url"])
-        elif result.get("status") == "picker":
-            return redirect(result["picker"][0]["url"])
+        elif "text" in result:
+            return f"Error: {result['text']}"
         else:
-            return f"Error: {result.get('text', 'Kisu ekta vul hoyeche, abar try koro.')}"
+            return "দুঃখিত, ডাউনলোড লিঙ্ক পাওয়া যায়নি। আবার চেষ্টা করুন।"
 
     except Exception as e:
-        return f"Server Error: {str(e)}"
+        return f"সার্ভার এরর: {str(e)}"
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
