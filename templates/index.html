@@ -3,49 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anondo's social video/audio Downloader | Ultimate Edition</title>
+    <title>Anondo Downloader - Fixed</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: white; text-align: center; padding: 20px; margin: 0; }
-        .container { background: #1e293b; padding: 30px; border-radius: 20px; max-width: 450px; margin: 50px auto; border: 1px solid #38bdf8; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        h2 { color: #38bdf8; margin-bottom: 10px; }
-        p { color: #94a3b8; font-size: 14px; margin-bottom: 25px; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: white; text-align: center; padding: 20px; }
+        .container { background: #1e293b; padding: 30px; border-radius: 20px; max-width: 450px; margin: 50px auto; border: 1px solid #38bdf8; }
+        h2 { color: #38bdf8; }
         input, select, button { width: 100%; padding: 14px; margin: 10px 0; border-radius: 10px; border: 1px solid #334155; box-sizing: border-box; font-size: 16px; }
-        input { background: #0f172a; color: white; outline: none; border-color: #38bdf8; }
-        select { background: #0f172a; color: white; cursor: pointer; }
-        button { background: #38bdf8; color: #0f172a; font-weight: bold; border: none; cursor: pointer; transition: 0.3s; margin-top: 15px; }
-        button:hover { background: #0ea5e9; transform: scale(1.02); }
-        .footer-link { margin-top: 20px; display: block; color: #94a3b8; text-decoration: none; font-size: 14px; }
-        optgroup { background: #1e293b; color: #38bdf8; }
+        input, select { background: #0f172a; color: white; }
+        button { background: #38bdf8; color: #0f172a; font-weight: bold; cursor: pointer; border: none; }
+        button:hover { background: #0ea5e9; }
+        .footer { margin-top: 20px; font-size: 14px; color: #94a3b8; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>📥 Anondo's social video/audio Downloader</h2>
-        <p>Premium Quality Video & Music Downloader</p>
+        <h2>📥 Anondo Downloader</h2>
+        <p>YouTube, FB, Insta Bypass Fixed!</p>
         
         <form action="/download" method="POST">
-            <input type="text" name="url" placeholder="Paste link here..." required>
+            <input type="text" name="url" placeholder="Paste your link here..." required>
             
             <select name="format_type">
-                <optgroup label="🎬 Video Quality">
-                    <option value="1080">1080p Full HD</option>
-                    <option value="720" selected>720p HD</option>
-                    <option value="480">480p SD</option>
-                    <option value="360">360p Low</option>
+                <optgroup label="Video">
+                    <option value="1080">1080p Quality</option>
+                    <option value="720" selected>720p Quality</option>
+                    <option value="360">360p Quality</option>
                 </optgroup>
-                
-                <optgroup label="🎵 Music Quality (MP3)">
-                    <option value="320k">320kbps (High Quality)</option>
-                    <option value="256k">256kbps (Premium)</option>
-                    <option value="128k">128kbps (Standard)</option>
-                    <option value="64k">64kbps (Low/Data Saver)</option>
+                <optgroup label="Audio">
+                    <option value="128k">MP3 Audio</option>
                 </optgroup>
             </select>
             
             <button type="submit">Download Now</button>
         </form>
         
-        <a href="https://anondo.bro.bd" class="footer-link">← Back to Home Hub</a>
+        <div class="footer">
+            <a href="https://anondo.bro.bd" style="color: #94a3b8; text-decoration: none;">← Back to Hub</a>
+        </div>
     </div>
 </body>
 </html>
