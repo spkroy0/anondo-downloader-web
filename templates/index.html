@@ -14,7 +14,6 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Consolas', monospace; background: #0b1120; height: 100vh; display: flex; flex-direction: column; overflow: hidden; color: white; }
 
-        /* RGB Header */
         .top-header { background: #1e293b; padding: 10px; text-align: center; border-bottom: 2px solid #334155; }
         .top-header h1 { 
             font-size: 16px; letter-spacing: 2px; text-transform: uppercase; font-weight: bold;
@@ -24,23 +23,26 @@
         }
         @keyframes rgbText { to { background-position: 200% center; } }
 
-        /* Toolbar */
         .toolbar-container { background: #0f172a; border-bottom: 1px solid #334155; }
         .toolbar-row { display: flex; gap: 5px; padding: 6px 10px; overflow-x: auto; scrollbar-width: none; }
         .toolbar-row button { background: #334155; color: #38bdf8; border: none; padding: 8px 14px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px; }
         .btn-run { background: #0369a1 !important; color: white !important; }
         .btn-pdf { background: #991b1b !important; color: white !important; }
 
-        /* Layout */
         .main-content { display: flex; flex: 1; height: calc(100vh - 200px); }
         .editor-box { width: 50%; height: 100%; position: relative; border-right: 1px solid #334155; background: #0d1117; }
-        .preview-box { width: 50%; height: 100%; background: white; }
+        .preview-box { width: 50%; height: 100%; background: white; overflow: hidden; }
 
         #editing, #highlighting { padding: 15px; width: 100%; height: 100%; font-size: 14px; line-height: 1.5; position: absolute; top: 0; left: 0; white-space: pre; overflow: auto; border: none; outline: none; }
         #editing { background: transparent; color: transparent; caret-color: #38bdf8; z-index: 2; resize: none; }
         #highlighting { z-index: 1; pointer-events: none; }
         
-        iframe { width: 100%; height: 100%; border: none; }
+        iframe { width: 100%; height: 100%; border: none; background: white; }
+
+        /* PDF Capture Container (Hidden from Screen) */
+        #pdf-capture-container { 
+            position: absolute; left: -9999px; top: 0; width: 800px; background: white; color: black; padding: 20px;
+        }
 
         @media (max-width: 768px) { .main-content { flex-direction: column; } .editor-box, .preview-box { width: 100%; height: 50%; } }
     </style>
@@ -69,7 +71,6 @@
         <button onclick="addTag('p')">P</button>
         <button onclick="addTag('div')">Div</button>
         <button onclick="addTag('style')">CSS</button>
-        <button onclick="addTag('script')">JS</button>
     </div>
 </div>
 
@@ -78,10 +79,12 @@
         <textarea id="editing" spellcheck="false" oninput="updateLive()" onkeydown="handleKeys(event)"></textarea>
         <pre id="highlighting" aria-hidden="true"><code class="language-html" id="highlight-content"></code></pre>
     </div>
-    <div class="preview-box" id="preview-capture">
+    <div class="preview-box">
         <iframe id="live-preview"></iframe>
     </div>
 </div>
+
+<div id="pdf-capture-container"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
 
@@ -90,8 +93,8 @@
     const editArea = document.getElementById("editing");
     const highlightArea = document.getElementById("highlight-content");
     const previewFrame = document.getElementById("live-preview");
+    const pdfContainer = document.getElementById("pdf-capture-container");
 
-    // ১. লাইভ আপডেট (অটো-ক্লোজ টোটালি অফ)
     function updateLive() {
         let code = editArea.value;
         highlightArea.textContent = code;
@@ -99,44 +102,51 @@
 
         const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
         doc.open(); doc.write(code); doc.close();
+        
+        // PDF-এর জন্য হিডেন কন্টেইনারেও কোড আপডেট করে রাখা
+        pdfContainer.innerHTML = code;
         localStorage.setItem("anondo_editor_code", code);
     }
 
-    // ২. PDF ডাউনলোড (কোড + প্রিভিউ ইমেজ)
     async function downloadPDF() {
         const btn = document.querySelector(".btn-pdf");
-        btn.innerText = "Processing...";
+        const originalText = btn.innerHTML;
+        btn.innerText = "Capturing...";
         
         try {
             const doc = new jsPDF('p', 'mm', 'a4');
-            const codeText = editArea.value;
-
-            // Page 1: Source Code
+            
+            // Page 1: Code
             doc.setFontSize(16);
-            doc.text("Html Pro Editor - Source Code", 10, 15);
+            doc.text("Project Source Code", 10, 15);
             doc.setFontSize(10);
             doc.setFont("courier", "normal");
-            const splitCode = doc.splitTextToSize(codeText, 180);
+            const splitCode = doc.splitTextToSize(editArea.value, 180);
             doc.text(splitCode, 10, 25);
 
-            // Page 2: Preview Capture
-            const canvas = await html2canvas(document.getElementById("preview-capture"));
+            // Page 2: Output (Fix)
+            // html2canvas হিডেন ডিভ থেকে ইমেজ নিবে কারণ iframe থেকে নেওয়া সম্ভব নয়
+            const canvas = await html2canvas(pdfContainer, {
+                backgroundColor: "#ffffff",
+                scale: 2
+            });
             const imgData = canvas.toDataURL('image/png');
+            
             doc.addPage();
             doc.setFont("helvetica", "bold");
-            doc.text("Output Preview:", 10, 15);
-            doc.addImage(imgData, 'PNG', 10, 20, 190, 100);
+            doc.setFontSize(16);
+            doc.text("Project Output Preview", 10, 15);
+            doc.addImage(imgData, 'PNG', 10, 25, 190, 120);
             
-            doc.save("anondo_project.pdf");
+            doc.save("anondo_editor_project.pdf");
         } catch (err) {
-            alert("Error generating PDF!");
+            console.error(err);
+            alert("PDF generation error!");
         }
-        btn.innerHTML = 'SAVE AS PDF <i class="fas fa-file-pdf"></i>';
+        btn.innerHTML = originalText;
     }
 
-    function addTag(tagName) {
-        addCode(`<${tagName}>`, `</${tagName}>`);
-    }
+    function addTag(tagName) { addCode(`<${tagName}>`, `</${tagName}>`); }
 
     function addCode(open, close = "") {
         const start = editArea.selectionStart;
@@ -148,18 +158,15 @@
     }
 
     function handleKeys(e) { if (e.key === "Tab") { e.preventDefault(); addCode("  "); } }
-    function clearEditor() { if(confirm("Muche felben?")) { editArea.value = ""; updateLive(); } }
+    function clearEditor() { if(confirm("Clear?")) { editArea.value = ""; updateLive(); } }
 
     editArea.addEventListener("scroll", () => {
         document.getElementById("highlighting").scrollTop = editArea.scrollTop;
-        document.getElementById("highlighting").scrollLeft = editArea.scrollLeft;
     });
 
     window.onload = () => {
-        // ৩. বেসিক HTML কোড উদাহরণ হিসেবে সেট করা
-        const basicTemplate = "<!DOCTYPE html>\n<html>\n<head>\n  <title>Anondo Editor</title>\n  <style>\n    body { text-align: center; font-family: sans-serif; }\n    h1 { color: #3b82f6; }\n  </style>\n</head>\n<body>\n  <h1>Hello World!</h1>\n  <p>This is a basic HTML project.</p>\n</body>\n</html>";
-        
-        editArea.value = localStorage.getItem("anondo_editor_code") || basicTemplate;
+        const basic = "<!DOCTYPE html>\n<html>\n<head>\n<style>\n  h1 { color: blue; text-align: center; }\n</style>\n</head>\n<body>\n  <h1>Anondo Pro Editor</h1>\n  <p>Success! Your output will now show in PDF.</p>\n</body>\n</html>";
+        editArea.value = localStorage.getItem("anondo_editor_code") || basic;
         updateLive();
     };
 </script>
