@@ -6,15 +6,14 @@
     <title>Anondo HTML Pro Editor</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Consolas', monospace; background: #0b1120; height: 100vh; display: flex; flex-direction: column; overflow: hidden; color: white; }
 
-        /* RGB Glowing Header */
+        /* RGB Header */
         .top-header { background: #1e293b; padding: 10px; text-align: center; border-bottom: 2px solid #334155; }
         .top-header h1 { 
-            font-size: 16px; letter-spacing: 2px; font-weight: bold;
+            font-size: 16px; letter-spacing: 2px; text-transform: uppercase; font-weight: bold;
             background: linear-gradient(to right, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #a855f7, #ec4899);
             background-size: 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent;
             animation: rgbText 3s linear infinite;
@@ -24,13 +23,14 @@
         /* 2-Line Toolbar */
         .toolbar-container { background: #0f172a; border-bottom: 1px solid #334155; }
         .toolbar-row { display: flex; gap: 5px; padding: 6px 10px; overflow-x: auto; scrollbar-width: none; }
-        .toolbar-row button { background: #334155; color: #38bdf8; border: none; padding: 7px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap; font-size: 11px; }
+        .toolbar-row button { background: #334155; color: #38bdf8; border: none; padding: 8px 14px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px; transition: 0.2s; }
+        .toolbar-row button:active { transform: scale(0.95); }
         .btn-run { background: #0369a1 !important; color: white !important; }
         .btn-save { background: #166534 !important; color: white !important; }
 
-        #tag-status { background: #0f172a; padding: 5px 15px; font-size: 11px; border-bottom: 1px solid #334155; display: flex; align-items: center; gap: 8px; height: 32px; color: #94a3b8; }
+        #tag-status { background: #0f172a; padding: 5px 15px; font-size: 11px; border-bottom: 1px solid #334155; height: 32px; display: flex; align-items: center; color: #94a3b8; }
 
-        /* Editor & Preview Split */
+        /* Editor Layout */
         .main-content { display: flex; flex: 1; height: calc(100vh - 210px); }
         .editor-box { width: 50%; height: 100%; position: relative; border-right: 1px solid #334155; background: #0d1117; }
         .preview-box { width: 50%; height: 100%; background: white; }
@@ -47,22 +47,20 @@
 <body>
 
 <div class="top-header">
-    <h1><i class="fas fa-magic"></i> HTML LIVE EDITOR BY ANONDO</h1>
+    <h1><i class="fas fa-terminal"></i> HTML LIVE EDITOR BY ANONDO</h1>
 </div>
 
 <div class="toolbar-container">
     <div class="toolbar-row">
         <button class="btn-run" onclick="updateLive()">RUN <i class="fas fa-play"></i></button>
-        <button class="btn-save" onclick="downloadCode()">DOWNLOAD <i class="fas fa-file-code"></i></button>
-        <button onclick="addCode('<')"><</button>
-        <button onclick="addCode('>')">></button>
+        <button class="btn-save" onclick="downloadCode()">DOWNLOAD <i class="fas fa-download"></i></button>
+        <button onclick="addCode('<')">&lt;</button>
+        <button onclick="addCode('>')">&gt;</button>
         <button onclick="addCode('/')">/</button>
         <button onclick="addCode('=')">=</button>
         <button onclick="addCode('&quot;')">"</button>
         <button onclick="addCode('!')">!</button>
-        <button onclick="addCode('{')">{</button>
-        <button onclick="addCode('}')">}</button>
-        <button style="background:#991b1b; color:white;" onclick="clearEditor()"><i class="fas fa-trash"></i></button>
+        <button style="background:#991b1b; color:white;" onclick="clearEditor()">CLEAR</button>
     </div>
     <div class="toolbar-row">
         <button onclick="addTag('html')">HTML</button>
@@ -72,20 +70,18 @@
         <button onclick="addTag('p')">P</button>
         <button onclick="addTag('div')">Div</button>
         <button onclick="addTag('button')">Btn</button>
-        <button onclick="addTag('a')">Link</button>
-        <button onclick="addTag('img')">Img</button>
         <button onclick="addTag('style')">CSS</button>
     </div>
 </div>
 
-<div id="tag-status"><i class="fas fa-keyboard"></i> Ready</div>
+<div id="tag-status">Editor Ready</div>
 
 <div class="main-content">
     <div class="editor-box">
-        <textarea id="editing" spellcheck="false" oninput="handleInput(this)" onkeydown="handleKeys(event)" onclick="matchTags()" onkeyup="matchTags()"></textarea>
+        <textarea id="editing" spellcheck="false" oninput="handleInput(this)" onkeydown="handleKeys(event)"></textarea>
         <pre id="highlighting" aria-hidden="true"><code class="language-html" id="highlight-content"></code></pre>
     </div>
-    <div class="preview-box" id="preview-wrapper">
+    <div class="preview-box">
         <iframe id="live-preview"></iframe>
     </div>
 </div>
@@ -103,6 +99,81 @@
         highlightArea.textContent = code;
         Prism.highlightElement(highlightArea);
 
+        const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+        doc.open(); doc.write(code); doc.close();
+        localStorage.setItem("anondo_editor_code", code);
+    }
+
+    function handleInput(el) {
+        let val = el.value;
+        let pos = el.selectionStart;
+
+        // Auto-close tag logic
+        if (val.substring(pos-2, pos) === "</") {
+            let textBefore = val.substring(0, pos-2);
+            let tags = textBefore.match(/<([a-zA-Z1-6]+)(?: [^>]*)?>/g);
+            if (tags) {
+                let lastTag = tags[tags.length - 1].match(/<([a-zA-Z1-6]+)/)[1];
+                let closeTag = lastTag + ">";
+                el.value = textBefore + "</" + closeTag + val.substring(pos);
+                el.selectionStart = el.selectionEnd = pos + closeTag.length;
+            }
+        }
+        updateLive();
+        matchTags();
+    }
+
+    function addTag(tagName) {
+        addCode(`<${tagName}>`, `</${tagName}>`);
+    }
+
+    function addCode(open, close = "") {
+        const start = editArea.selectionStart;
+        const end = editArea.selectionEnd;
+        const text = editArea.value;
+        editArea.value = text.substring(0, start) + open + close + text.substring(end);
+        editArea.selectionStart = editArea.selectionEnd = start + open.length;
+        editArea.focus();
+        updateLive();
+    }
+
+    function matchTags() {
+        const pos = editArea.selectionStart;
+        const text = editArea.value;
+        const match = text.substring(0, pos).match(/<([a-zA-Z1-6]+)[^>]*$/);
+        if (match) {
+            const tag = match[1];
+            statusDiv.innerHTML = text.includes(`</${tag}>`) ? 
+                `<span style="color:#4ade80;">&lt;${tag}&gt; matched</span>` : 
+                `<span style="color:#f87171;">Missing &lt;/${tag}&gt;</span>`;
+        } else {
+            statusDiv.innerText = "Editor Active";
+        }
+    }
+
+    function handleKeys(e) { if (e.key === "Tab") { e.preventDefault(); addCode("  "); } }
+    function clearEditor() { if(confirm("Clear all code?")) { editArea.value = ""; updateLive(); } }
+    function downloadCode() {
+        const blob = new Blob([editArea.value], {type: "text/html"});
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "anondo_project.html";
+        a.click();
+    }
+
+    editArea.addEventListener("scroll", () => {
+        document.getElementById("highlighting").scrollTop = editArea.scrollTop;
+        document.getElementById("highlighting").scrollLeft = editArea.scrollLeft;
+    });
+
+    window.onload = () => {
+        editArea.value = localStorage.getItem("anondo_editor_code") || "<h1>Hello!</h1>";
+        updateLive();
+    };
+</script>
+
+</body>
+</html>
         const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
         doc.open(); doc.write(code); doc.close();
 
