@@ -6,6 +6,10 @@
     <title>Anondo HTML Pro Editor</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Consolas', monospace; background: #0b1120; height: 100vh; display: flex; flex-direction: column; overflow: hidden; color: white; }
@@ -20,18 +24,17 @@
         }
         @keyframes rgbText { to { background-position: 200% center; } }
 
-        /* 2-Line Toolbar */
+        /* Toolbar */
         .toolbar-container { background: #0f172a; border-bottom: 1px solid #334155; }
         .toolbar-row { display: flex; gap: 5px; padding: 6px 10px; overflow-x: auto; scrollbar-width: none; }
-        .toolbar-row button { background: #334155; color: #38bdf8; border: none; padding: 8px 14px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px; transition: 0.2s; }
-        .toolbar-row button:active { transform: scale(0.95); }
+        .toolbar-row button { background: #334155; color: #38bdf8; border: none; padding: 8px 14px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px; }
         .btn-run { background: #0369a1 !important; color: white !important; }
-        .btn-save { background: #166534 !important; color: white !important; }
+        .btn-pdf { background: #991b1b !important; color: white !important; }
 
         #tag-status { background: #0f172a; padding: 5px 15px; font-size: 11px; border-bottom: 1px solid #334155; height: 32px; display: flex; align-items: center; color: #94a3b8; }
 
         /* Editor Layout */
-        .main-content { display: flex; flex: 1; height: calc(100vh - 210px); }
+        #capture-area { display: flex; flex: 1; height: calc(100vh - 210px); background: #0b1120; }
         .editor-box { width: 50%; height: 100%; position: relative; border-right: 1px solid #334155; background: #0d1117; }
         .preview-box { width: 50%; height: 100%; background: white; }
 
@@ -41,47 +44,45 @@
         
         iframe { width: 100%; height: 100%; border: none; }
 
-        @media (max-width: 768px) { .main-content { flex-direction: column; } .editor-box, .preview-box { width: 100%; height: 50%; } }
+        @media (max-width: 768px) { #capture-area { flex-direction: column; } .editor-box, .preview-box { width: 100%; height: 50%; } }
     </style>
 </head>
 <body>
 
 <div class="top-header">
-    <h1><i class="fas fa-terminal"></i> HTML LIVE EDITOR BY ANONDO</h1>
+    <h1><i class="fas fa-terminal"></i> HTML PRO EDITOR</h1>
 </div>
 
 <div class="toolbar-container">
     <div class="toolbar-row">
         <button class="btn-run" onclick="updateLive()">RUN <i class="fas fa-play"></i></button>
-        <button class="btn-save" onclick="downloadCode()">DOWNLOAD <i class="fas fa-download"></i></button>
-        <button onclick="addCode('<')">&lt;</button>
-        <button onclick="addCode('>')">&gt;</button>
+        <button class="btn-pdf" onclick="downloadPDF()">PDF DOWNLOAD <i class="fas fa-file-pdf"></i></button>
+        <button onclick="addCode('<')"><</button>
+        <button onclick="addCode('>')">></button>
         <button onclick="addCode('/')">/</button>
         <button onclick="addCode('=')">=</button>
         <button onclick="addCode('&quot;')">"</button>
-        <button onclick="addCode('!')">!</button>
-        <button style="background:#991b1b; color:white;" onclick="clearEditor()">CLEAR</button>
+        <button style="background:#4b5563; color:white;" onclick="clearEditor()">CLEAR</button>
     </div>
     <div class="toolbar-row">
         <button onclick="addTag('html')">HTML</button>
-        <button onclick="addTag('head')">Head</button>
         <button onclick="addTag('body')">Body</button>
         <button onclick="addTag('h1')">H1</button>
         <button onclick="addTag('p')">P</button>
         <button onclick="addTag('div')">Div</button>
-        <button onclick="addTag('button')">Btn</button>
         <button onclick="addTag('style')">CSS</button>
+        <button onclick="addTag('script')">JS</button>
     </div>
 </div>
 
-<div id="tag-status">Editor Ready</div>
+<div id="tag-status">Editor Active</div>
 
-<div class="main-content">
+<div id="capture-area">
     <div class="editor-box">
-        <textarea id="editing" spellcheck="false" oninput="handleInput(this)" onkeydown="handleKeys(event)"></textarea>
+        <textarea id="editing" spellcheck="false" oninput="updateLive()" onkeydown="handleKeys(event)"></textarea>
         <pre id="highlighting" aria-hidden="true"><code class="language-html" id="highlight-content"></code></pre>
     </div>
-    <div class="preview-box">
+    <div class="preview-box" id="preview-capture">
         <iframe id="live-preview"></iframe>
     </div>
 </div>
@@ -89,11 +90,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
 
 <script>
+    const { jsPDF } = window.jspdf;
     const editArea = document.getElementById("editing");
     const highlightArea = document.getElementById("highlight-content");
     const previewFrame = document.getElementById("live-preview");
-    const statusDiv = document.getElementById("tag-status");
 
+    // ১. আপডেট লাইভ (অটো-ক্লোজ রিমুভ করা হয়েছে)
     function updateLive() {
         let code = editArea.value;
         highlightArea.textContent = code;
@@ -104,23 +106,41 @@
         localStorage.setItem("anondo_editor_code", code);
     }
 
-    function handleInput(el) {
-        let val = el.value;
-        let pos = el.selectionStart;
+    // ২. PDF ডাউনলোড (কোড + আউটপুট ইমেজ)
+    async function downloadPDF() {
+        const btn = document.querySelector(".btn-pdf");
+        btn.innerText = "Generating...";
+        
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const codeText = editArea.value;
 
-        // Auto-close tag logic
-        if (val.substring(pos-2, pos) === "</") {
-            let textBefore = val.substring(0, pos-2);
-            let tags = textBefore.match(/<([a-zA-Z1-6]+)(?: [^>]*)?>/g);
-            if (tags) {
-                let lastTag = tags[tags.length - 1].match(/<([a-zA-Z1-6]+)/)[1];
-                let closeTag = lastTag + ">";
-                el.value = textBefore + "</" + closeTag + val.substring(pos);
-                el.selectionStart = el.selectionEnd = pos + closeTag.length;
-            }
+        // Title
+        doc.setFontSize(16);
+        doc.text("Anondo Editor - Project Report", 10, 15);
+        
+        // Code Section
+        doc.setFontSize(10);
+        doc.setFont("courier", "normal");
+        doc.text("Source Code:", 10, 25);
+        
+        const splitCode = doc.splitTextToSize(codeText, 180);
+        doc.text(splitCode, 10, 32);
+
+        // Output Section (Capturing preview as image)
+        try {
+            const canvas = await html2canvas(document.getElementById("preview-capture"));
+            const imgData = canvas.toDataURL('image/png');
+            doc.addPage();
+            doc.setFont("helvetica", "bold");
+            doc.text("Final Output (Preview):", 10, 15);
+            doc.addImage(imgData, 'PNG', 10, 20, 190, 100);
+            
+            doc.save("anondo_project.pdf");
+            btn.innerHTML = 'PDF DOWNLOAD <i class="fas fa-file-pdf"></i>';
+        } catch (err) {
+            alert("PDF generation failed!");
+            btn.innerHTML = 'PDF DOWNLOAD <i class="fas fa-file-pdf"></i>';
         }
-        updateLive();
-        matchTags();
     }
 
     function addTag(tagName) {
@@ -130,36 +150,14 @@
     function addCode(open, close = "") {
         const start = editArea.selectionStart;
         const end = editArea.selectionEnd;
-        const text = editArea.value;
-        editArea.value = text.substring(0, start) + open + close + text.substring(end);
+        editArea.value = editArea.value.substring(0, start) + open + close + editArea.value.substring(end);
         editArea.selectionStart = editArea.selectionEnd = start + open.length;
         editArea.focus();
         updateLive();
     }
 
-    function matchTags() {
-        const pos = editArea.selectionStart;
-        const text = editArea.value;
-        const match = text.substring(0, pos).match(/<([a-zA-Z1-6]+)[^>]*$/);
-        if (match) {
-            const tag = match[1];
-            statusDiv.innerHTML = text.includes(`</${tag}>`) ? 
-                `<span style="color:#4ade80;">&lt;${tag}&gt; matched</span>` : 
-                `<span style="color:#f87171;">Missing &lt;/${tag}&gt;</span>`;
-        } else {
-            statusDiv.innerText = "Editor Active";
-        }
-    }
-
     function handleKeys(e) { if (e.key === "Tab") { e.preventDefault(); addCode("  "); } }
-    function clearEditor() { if(confirm("Clear all code?")) { editArea.value = ""; updateLive(); } }
-    function downloadCode() {
-        const blob = new Blob([editArea.value], {type: "text/html"});
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = "anondo_project.html";
-        a.click();
-    }
+    function clearEditor() { if(confirm("Clear?")) { editArea.value = ""; updateLive(); } }
 
     editArea.addEventListener("scroll", () => {
         document.getElementById("highlighting").scrollTop = editArea.scrollTop;
@@ -167,7 +165,7 @@
     });
 
     window.onload = () => {
-        editArea.value = localStorage.getItem("anondo_editor_code") || "<h1>Hello!</h1>";
+        editArea.value = localStorage.getItem("anondo_editor_code") || "\n<h1>Hello</h1>";
         updateLive();
     };
 </script>
