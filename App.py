@@ -1,74 +1,130 @@
-import os
-import subprocess
-import uuid
-from flask import Flask, render_template, make_response, request, jsonify
-from flask_compress import Compress
-
-app = Flask(__name__)
-Compress(app)
-
-# টেম্পোরারি ফাইল রাখার ফোল্ডার তৈরি
-TEMP_DIR = "temp_codes"
-if not os.path.exists(TEMP_DIR):
-    os.makedirs(TEMP_DIR)
-
-@app.route('/')
-def index():
-    response = make_response(render_template('index.html'))
-    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    return response
-
-@app.route('/c-editor')
-def c_editor():
-    response = make_response(render_template('c_editor.html'))
-    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    return response
-
-# --- সি কোড কম্পাইল এবং রান করার নিজস্ব এপিআই ---
-@app.route('/run-c', methods=['POST'])
-def run_c_code():
-    data = request.get_json()
-    code = data.get('code', '')
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anondo Pro C IDE - Self Hosted</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
-    if not code:
-        return jsonify({"output": "", "error": "No code provided!"}), 400
+    <style>
+        :root { --bg: #0b0f1a; --panel: #161b22; --accent: #58a6ff; }
+        body { margin: 0; background: var(--bg); color: white; font-family: 'Poppins', sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-    unique_id = str(uuid.uuid4())
-    source_file = os.path.join(TEMP_DIR, f"{unique_id}.c")
-    output_exec = os.path.join(TEMP_DIR, f"{unique_id}.out")
+        @keyframes rgbText {
+            0% { color: #ff0000; } 33% { color: #00ff00; } 66% { color: #0000ff; } 100% { color: #ff0000; }
+        }
+        .rgb-title { font-weight: bold; font-size: 16px; animation: rgbText 3s infinite linear; text-transform: uppercase; }
 
-    try:
-        # ১. ইউজার থেকে পাওয়া কোডটি ফাইলে সেভ করা
-        with open(source_file, "w") as f:
-            f.write(code)
+        .header { background: var(--panel); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #30363d; }
+        
+        .btn-group { display: flex; gap: 8px; }
+        .run-btn { background: #238636; color: white; border: none; padding: 8px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .pdf-btn { background: #ef4444; color: white; border: none; padding: 8px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .run-btn:hover { background: #2ea043; transform: scale(1.05); }
 
-        # ২. GCC বা Clang দিয়ে কম্পাইল করা
-        # নোট: সার্ভারে GCC না থাকলে Clang ট্রাই করবে
-        compile_process = subprocess.run(
-            ["gcc", source_file, "-o", output_exec],
-            capture_output=True, text=True
-        )
+        .quick-tools { background: #21262d; padding: 5px 10px; display: flex; gap: 8px; overflow-x: auto; border-bottom: 1px solid #30363d; }
+        .tool-btn { background: #30363d; color: white; border: none; padding: 5px 12px; border-radius: 4px; font-family: monospace; cursor: pointer; white-space: nowrap; }
 
-        if compile_process.returncode != 0:
-            return jsonify({"output": "", "error": compile_process.stderr})
+        #pdf-content { display: flex; flex: 1; overflow: hidden; background: #0b0f1a; }
+        @media (max-width: 768px) { #pdf-content { flex-direction: column; } }
 
-        # ৩. কম্পাইল করা ফাইলটি রান করা (৫ সেকেন্ড টাইমআউট যাতে সার্ভার ঝুলে না যায়)
-        run_process = subprocess.run(
-            [output_exec],
-            capture_output=True, text=True, timeout=5
-        )
+        #editor { flex: 1.5; font-size: 15px; border-right: 1px solid #30363d; height: 100%; }
+        
+        .output-section { flex: 1; display: flex; flex-direction: column; background: #000; color: #fff; }
+        .output-header { background: #161b22; padding: 8px; font-size: 12px; color: #8b949e; border-bottom: 1px solid #30363d; }
+        #output { flex: 1; padding: 15px; font-family: 'Fira Code', monospace; font-size: 14px; overflow-y: auto; white-space: pre-wrap; margin: 0; color: #d1d5db; }
+        .error { color: #f85149; }
+        .success { color: #3fb950; }
+    </style>
+</head>
+<body>
 
-        return jsonify({"output": run_process.stdout, "error": run_process.stderr})
+<div class="header">
+    <div class="rgb-title">C EDITOR BY ANONDO</div>
+    <div class="btn-group">
+        <button class="run-btn" onclick="runCode()"><i class="fas fa-play"></i> RUN</button>
+        <button class="pdf-btn" onclick="saveAsPDF()"><i class="fas fa-file-pdf"></i> PDF</button>
+    </div>
+</div>
 
-    except subprocess.TimeoutExpired:
-        return jsonify({"output": "", "error": "Error: Execution Timeout (Possible Infinite Loop)"})
-    except Exception as e:
-        return jsonify({"output": "", "error": str(e)})
-    finally:
-        # ৪. কাজ শেষে টেম্পোরারি ফাইলগুলো মুছে ফেলা
-        if os.path.exists(source_file): os.remove(source_file)
-        if os.path.exists(output_exec): os.remove(output_exec)
+<div class="quick-tools">
+    <button class="tool-btn" onclick="insertText('#include <stdio.h>\n')">#include</button>
+    <button class="tool-btn" onclick="insertText('int main() {\n\n    return 0;\n}')">main()</button>
+    <button class="tool-btn" onclick="insertText('printf(\"\");')">printf</button>
+    <button class="tool-btn" onclick="insertText('scanf(\"\");')">scanf</button>
+    <button class="tool-btn" onclick="insertText(';')">;</button>
+    <button class="tool-btn" onclick="insertText('{')">{</button>
+    <button class="tool-btn" onclick="insertText('}')">}</button>
+    <button class="tool-btn" onclick="insertText('&')">&</button>
+    <button class="tool-btn" onclick="insertText('%d')">%d</button>
+</div>
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+<div id="pdf-content">
+    <div id="editor">#include <stdio.h>
+
+int main() {
+    printf("Anondo Kumar Roy's Personal C IDE\n");
+    printf("Status: Running on Personal Server\n");
+    return 0;
+}</div>
+
+    <div class="output-section">
+        <div class="output-header">LIVE CONSOLE OUTPUT</div>
+        <pre id="output">Output will appear here...</pre>
+    </div>
+</div>
+
+<script>
+    var editor = ace.edit("editor");
+    editor.setTheme("ace/theme/one_dark");
+    editor.session.setMode("ace/mode/c_cpp");
+    editor.setShowPrintMargin(false);
+
+    function insertText(text) {
+        editor.insert(text);
+        editor.focus();
+    }
+
+    async function runCode() {
+        const code = editor.getValue();
+        const outputDiv = document.getElementById('output');
+        outputDiv.innerHTML = '<span style="color: #58a6ff;">Connecting to Anondo Server...</span>';
+
+        try {
+            // আপনার নিজস্ব সার্ভারের /run-c রুটে রিকোয়েস্ট পাঠানো হচ্ছে
+            const response = await fetch('/run-c', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ "code": code })
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                // যদি কম্পাইলেশন বা রানটাইম এরর থাকে
+                outputDiv.innerHTML = '<span class="error">Error Log:</span>\n' + data.error;
+            } else {
+                // সফলভাবে রান হলে
+                outputDiv.innerHTML = '<span class="success">Executed Successfully:</span>\n\n' + data.output;
+            }
+        } catch (error) {
+            outputDiv.innerHTML = '<span class="error">Server Connection Failed!</span>\nMake sure your Flask app is running.';
+        }
+    }
+
+    function saveAsPDF() {
+        const element = document.getElementById('pdf-content');
+        const opt = {
+            margin:       0.3,
+            filename:     'Anondo_C_Code.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, backgroundColor: '#0b0f1a' },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
+        };
+        html2pdf().set(opt).from(element).save();
+    }
+</script>
+</body>
+</html>
