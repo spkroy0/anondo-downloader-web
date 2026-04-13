@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anondo Pro C IDE - Ultimate</title>
+    <title>Anondo Pro C IDE - Final</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -20,9 +20,9 @@
         .header { background: var(--panel); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #30363d; }
         
         .btn-group { display: flex; gap: 8px; }
-        .run-btn { background: #238636; color: white; border: none; padding: 8px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        .pdf-btn { background: #ef4444; color: white; border: none; padding: 8px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; }
-        .run-btn:hover { background: #2ea043; }
+        .run-btn { background: #238636; color: white; border: none; padding: 8px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .pdf-btn { background: #ef4444; color: white; border: none; padding: 8px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .run-btn:hover { background: #2ea043; transform: scale(1.05); }
 
         .quick-tools { background: #21262d; padding: 5px 10px; display: flex; gap: 8px; overflow-x: auto; border-bottom: 1px solid #30363d; }
         .tool-btn { background: #30363d; color: white; border: none; padding: 5px 12px; border-radius: 4px; font-family: monospace; cursor: pointer; white-space: nowrap; }
@@ -66,7 +66,7 @@
 
 int main() {
     printf("C Editor by Anondo Kumar Roy\n");
-    printf("Status: Testing API Connection...\n");
+    printf("Final Fix: Version * for dynamic API\n");
     return 0;
 }</div>
 
@@ -98,7 +98,7 @@ int main() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     "language": "c",
-                    "version": "10.2.0",
+                    "version": "*", 
                     "files": [{ "name": "main.c", "content": code }]
                 })
             });
@@ -107,12 +107,12 @@ int main() {
             
             if (data.run) {
                 if (data.run.stderr) {
-                    outputDiv.innerHTML = '<span class="error">Compilation Error:</span>\n' + data.run.stderr;
+                    outputDiv.innerHTML = '<span class="error">Compilation/Runtime Error:</span>\n' + data.run.stderr;
                 } else {
-                    outputDiv.innerHTML = '<span class="success">Program Executed Successfully:</span>\n\n' + data.run.output;
+                    outputDiv.innerHTML = '<span class="success">Executed Successfully:</span>\n\n' + data.run.output;
                 }
             } else {
-                outputDiv.innerHTML = '<span class="error">API Error: ' + (data.message || "Invalid Response") + '</span>';
+                outputDiv.innerHTML = '<span class="error">API Error: ' + (data.message || "Invalid Response Structure") + '</span>';
             }
         } catch (error) {
             outputDiv.innerHTML = '<span class="error">Network Error: ' + error.message + '</span>';
