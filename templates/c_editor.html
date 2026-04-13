@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anondo Pro C IDE - PDF Export</title>
+    <title>Anondo Pro C IDE - Fixed</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -24,9 +24,8 @@
         .pdf-btn { background: #ef4444; color: white; border: none; padding: 8px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; }
 
         .quick-tools { background: #21262d; padding: 5px 10px; display: flex; gap: 8px; overflow-x: auto; border-bottom: 1px solid #30363d; }
-        .tool-btn { background: #30363d; color: white; border: none; padding: 5px 12px; border-radius: 4px; font-family: monospace; cursor: pointer; }
+        .tool-btn { background: #30363d; color: white; border: none; padding: 5px 12px; border-radius: 4px; font-family: monospace; cursor: pointer; white-space: nowrap; }
 
-        /* PDF Export Section */
         #pdf-content { display: flex; flex: 1; overflow: hidden; background: #0b0f1a; }
         @media (max-width: 768px) { #pdf-content { flex-direction: column; } }
 
@@ -57,12 +56,12 @@
     <button class="tool-btn" onclick="insertText('}')">}</button>
 </div>
 
-<div class="main-container" id="pdf-content">
+<div id="pdf-content">
     <div id="editor">#include <stdio.h>
 
 int main() {
     printf("Anondo Kumar Roy's C IDE\n");
-    printf("Code and Output can be saved as PDF!\n");
+    printf("Fixed and Running Successfully!\n");
     return 0;
 }</div>
 
@@ -86,7 +85,7 @@ int main() {
     async function runCode() {
         const code = editor.getValue();
         const outputDiv = document.getElementById('output');
-        outputDiv.innerHTML = '<span style="color: #58a6ff;">Running...</span>';
+        outputDiv.innerHTML = '<span style="color: #58a6ff;">Compiling...</span>';
 
         try {
             const response = await fetch('https://emkc.org/api/v2/piston/execute', {
@@ -95,28 +94,32 @@ int main() {
                 body: JSON.stringify({
                     "language": "c",
                     "version": "10.2.0",
-                    "files": [{ "content": code }]
+                    "files": [{ "name": "main.c", "content": code }] // Added filename 'main.c'
                 })
             });
+            
             const data = await response.json();
-            outputDiv.innerText = data.run.output || data.run.stderr;
+            
+            if (data.run) {
+                // If there is an error in code, show it, otherwise show output
+                outputDiv.innerText = data.run.stderr || data.run.output;
+            } else {
+                outputDiv.innerText = "Error: API Response issue.";
+            }
         } catch (error) {
-            outputDiv.innerText = "Error!";
+            outputDiv.innerText = "Network Error: Could not connect to compiler.";
         }
     }
 
-    // --- PDF Export Logic ---
     function saveAsPDF() {
         const element = document.getElementById('pdf-content');
         const opt = {
-            margin:       0.5,
+            margin:       0.3,
             filename:     'Anondo_C_Code.pdf',
             image:        { type: 'jpeg', quality: 0.98 },
             html2canvas:  { scale: 2, backgroundColor: '#0b0f1a' },
-            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
         };
-
-        // PDF তৈরির আগে এডিটরের হাইট সেট করে নেওয়া যাতে পুরো কোড আসে
         html2pdf().set(opt).from(element).save();
     }
 </script>
